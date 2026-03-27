@@ -65,6 +65,23 @@ function randomSeedString() {
     const n = Math.floor(Math.random() * 0xffffffff);
     return n.toString(16).padStart(8, '0');
 }
+/**
+ * Не ИИ: если в строке сида есть слова про «дом», строим узнаваемую иконку дома.
+ * Длинный текст вроде «Сгенерируй иконку домика» всё равно содержит «дом» → сработает.
+ */
+function detectHouseIntent(seed) {
+    return /дом|домик|house|home|roof|крыш/i.test(seed);
+}
+/** Дом: крыша из линий + скруглённый корпус (8×8 min) + дверь. */
+function buildHouseIcon() {
+    const frame = createIconFrame();
+    frame.name = 'Icon / house';
+    appendLine(frame, 5, 10, 10, 4);
+    appendLine(frame, 10, 4, 15, 10);
+    appendRoundedRect(frame, 5, 10, 10, 8, 'stroke');
+    appendLine(frame, 10, 15, 10, 18);
+    return frame;
+}
 function createIconFrame() {
     const frame = figma.createFrame();
     frame.name = 'Icon';
@@ -365,9 +382,10 @@ figma.ui.onmessage = (msg) => {
         return;
     const seedStr = msg.seed && msg.seed.length > 0 ? msg.seed : randomSeedString();
     const rng = mulberry32(hashSeed(seedStr));
+    const wantHouse = detectHouseIntent(seedStr);
     let node;
     try {
-        node = buildIcon(rng);
+        node = wantHouse ? buildHouseIcon() : buildIcon(rng);
     }
     catch (e) {
         figma.notify('Ошибка генерации: ' + String(e));
@@ -379,5 +397,7 @@ figma.ui.onmessage = (msg) => {
     figma.currentPage.selection = [node];
     figma.viewport.scrollAndZoomIntoView([node]);
     figma.ui.postMessage({ type: 'seed', value: seedStr });
-    figma.notify('Иконка: сид «' + seedStr + '»');
+    figma.notify(wantHouse
+        ? 'Иконка «дом» (ключевое слово в строке; не ИИ-промпт)'
+        : 'Иконка: сид «' + seedStr + '»');
 };
